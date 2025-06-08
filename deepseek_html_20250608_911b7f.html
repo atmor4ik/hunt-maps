@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hunt:Showdown Interactive Map</title>
+  <style>
+    :root {
+      --marker-size: min(4vw, 32px);
+    }
+    
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', Tahoma, sans-serif;
+      background-color: #0c0c0c;
+      overflow: hidden;
+    }
+    .map-container {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      background: url('https://i.imgur.com/jWXtRmY.jpg') center/contain no-repeat;
+    }
+    .marker {
+      position: absolute;
+      width: var(--marker-size);
+      height: var(--marker-size);
+      background: url('https://i.imgur.com/dRhFiqs.png') center/cover no-repeat;
+      cursor: pointer;
+      transform: translate(-50%, -50%);
+      transition: transform 0.2s ease;
+    }
+    .marker:hover {
+      transform: translate(-50%, -50%) scale(1.2);
+    }
+    .tooltip {
+      position: fixed;
+      display: none;
+      border: 2px solid #d4af37;
+      max-width: min(90vw, 300px);
+      z-index: 100;
+      background-color: rgba(17, 17, 17, 0.95);
+      padding: 8px;
+      border-radius: 8px;
+      box-shadow: 0 0 20px rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(5px);
+      pointer-events: none;
+    }
+    .tooltip-content {
+      position: relative;
+    }
+    .tooltip img {
+      width: 100%;
+      height: auto;
+      border-radius: 4px;
+      transition: transform 0.3s ease;
+    }
+    .tooltip img.enlarged {
+      transform: scale(1.8);
+      cursor: zoom-out;
+    }
+    .tooltip-title {
+      color: #d4af37;
+      margin-top: 8px;
+      font-weight: bold;
+      text-align: center;
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="map-container" id="map">
+    <!-- Маркеры будут созданы динамически -->
+    <div class="tooltip" id="tooltip">
+      <div class="tooltip-content">
+        <img id="tooltip-img" src="" alt="Location Preview" />
+        <div class="tooltip-title" id="tooltip-title"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Конфигурация маркеров
+    const markersConfig = [
+      {
+        name: "Кассовый аппарат",
+        top: 45,
+        left: 60,
+        img: "https://i.imgur.com/FqSRAB7.png"
+      },
+      {
+        name: "Кемперская точка",
+        top: 28,
+        left: 33,
+        img: "https://i.imgur.com/MOYMS0r.png"
+      },
+      {
+        name: "Воронье место",
+        top: 62,
+        left: 25,
+        img: "https://i.imgur.com/pwiylno.png"
+      }
+    ];
+
+    // Элементы DOM
+    const map = document.getElementById('map');
+    const tooltip = document.getElementById('tooltip');
+    const tooltipImg = document.getElementById('tooltip-img');
+    const tooltipTitle = document.getElementById('tooltip-title');
+    
+    // Предзагрузка изображений
+    function preloadImages() {
+      markersConfig.forEach(marker => {
+        const img = new Image();
+        img.src = marker.img;
+      });
+    }
+    
+    // Создание маркеров
+    function createMarkers() {
+      markersConfig.forEach(marker => {
+        const markerElement = document.createElement('div');
+        markerElement.className = 'marker';
+        markerElement.style.top = `${marker.top}%`;
+        markerElement.style.left = `${marker.left}%`;
+        markerElement.dataset.img = marker.img;
+        markerElement.dataset.name = marker.name;
+        
+        markerElement.addEventListener('mouseover', showTooltip);
+        markerElement.addEventListener('mouseout', hideTooltip);
+        markerElement.addEventListener('mousemove', moveTooltip);
+        markerElement.addEventListener('click', toggleZoom);
+        
+        map.appendChild(markerElement);
+      });
+    }
+    
+    // Показ подсказки
+    function showTooltip(e) {
+      const marker = e.currentTarget;
+      tooltipImg.src = marker.dataset.img;
+      tooltipTitle.textContent = marker.dataset.name;
+      tooltip.style.display = 'block';
+      moveTooltip(e);
+    }
+    
+    // Скрытие подсказки
+    function hideTooltip() {
+      tooltip.style.display = 'none';
+      tooltipImg.classList.remove('enlarged');
+    }
+    
+    // Перемещение подсказки с защитой от выхода за границы
+    function moveTooltip(e) {
+      const offsetX = 20;
+      const offsetY = 20;
+      const tooltipWidth = tooltip.offsetWidth;
+      const tooltipHeight = tooltip.offsetHeight;
+      
+      let x = e.clientX + offsetX;
+      let y = e.clientY + offsetY;
+      
+      // Проверка правой границы
+      if (x + tooltipWidth > window.innerWidth) {
+        x = e.clientX - tooltipWidth - offsetX;
+      }
+      
+      // Проверка нижней границы
+      if (y + tooltipHeight > window.innerHeight) {
+        y = e.clientY - tooltipHeight - offsetY;
+      }
+      
+      tooltip.style.left = `${x}px`;
+      tooltip.style.top = `${y}px`;
+    }
+    
+    // Увеличение/уменьшение изображения
+    function toggleZoom() {
+      tooltipImg.classList.toggle('enlarged');
+      
+      // Центрирование при увеличении
+      if (tooltipImg.classList.contains('enlarged')) {
+        const rect = tooltip.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        
+        window.scrollTo({
+          top: centerY - window.innerHeight / 2,
+          left: centerX - window.innerWidth / 2,
+          behavior: 'smooth'
+        });
+      }
+    }
+    
+    // Поддержка мобильных устройств
+    function initTouchEvents() {
+      document.querySelectorAll('.marker').forEach(marker => {
+        marker.addEventListener('touchstart', function(e) {
+          e.preventDefault();
+          showTooltip(e);
+          toggleZoom();
+        });
+      });
+      
+      document.addEventListener('touchend', hideTooltip);
+    }
+    
+    // Инициализация
+    window.addEventListener('DOMContentLoaded', () => {
+      preloadImages();
+      createMarkers();
+      initTouchEvents();
+    });
+    
+    // Закрытие подсказки при клике вне области
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.marker') && !e.target.closest('.tooltip')) {
+        hideTooltip();
+      }
+    });
+  </script>
+</body>
+</html>
