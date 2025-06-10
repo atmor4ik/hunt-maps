@@ -1,221 +1,699 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Hunt:Showdown Interactive Map</title>
+  <title>Карта Hunt: Showdown</title>
+  <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    :root {
-      --marker-size: min(4vw, 32px);
-    }
-    
-    body {
+    html, body {
       margin: 0;
-      font-family: 'Segoe UI', Tahoma, sans-serif;
-      background-color: #0c0c0c;
       overflow: hidden;
+      background-color: #111;
     }
-    .map-container {
-      position: relative;
+    .map-wrapper {
       width: 100vw;
       height: 100vh;
-      background: url('https://i.imgur.com/NIbLgyP.png') center/contain no-repeat;
+      overflow: hidden;
+      cursor: grab;
+    }
+    .map {
+      width: 2000px;
+      height: 2000px;
+      background: url('https://i.postimg.cc/XY7HK0t9/Basemap-Mammon-V1.png') no-repeat center;
+      background-size: cover;
+      position: relative;
+      transform-origin: 0 0;
     }
     .marker {
       position: absolute;
-      width: var(--marker-size);
-      height: var(--marker-size);
-      background: url('https://i.imgur.com/PMs8Eca.png') center/cover no-repeat;
-      cursor: pointer;
+      width: 20px;
+      height: 20px;
+      background: url('https://i.imgur.com/PMs8Eca.png') no-repeat center/contain;
       transform: translate(-50%, -50%);
-      transition: transform 0.2s ease;
+      cursor: pointer;
+      transition: transform 0.2s;
     }
     .marker:hover {
-      transform: translate(-50%, -50%) scale(1.2);
+      transform: translate(-50%, -50%) scale(1.3);
     }
     .tooltip {
-      position: fixed;
+      position: absolute;
       display: none;
+      background: rgba(0, 0, 0, 0.85);
       border: 2px solid #d4af37;
-      max-width: min(90vw, 300px);
-      z-index: 100;
-      background-color: rgba(17, 17, 17, 0.95);
-      padding: 8px;
       border-radius: 8px;
-      box-shadow: 0 0 20px rgba(0, 0, 0, 0.7);
-      backdrop-filter: blur(5px);
-      pointer-events: none;
-    }
-    .tooltip-content {
-      position: relative;
+      padding: 5px;
+      z-index: 100;
+      pointer-events: auto;
     }
     .tooltip img {
-      width: 100%;
-      height: auto;
-      border-radius: 4px;
+      max-width: 200px;
+      border-radius: 5px;
+      cursor: zoom-in;
       transition: transform 0.3s ease;
+      display: block;
     }
     .tooltip img.enlarged {
-      transform: scale(1.8);
       cursor: zoom-out;
+      position: fixed;
+      z-index: 1001;
+      max-width: 90vw;
+      max-height: 90vh;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      border: 3px solid #d4af37;
+      box-shadow: 0 0 30px rgba(0, 0, 0, 0.8);
+      object-fit: contain;
     }
-    .tooltip-title {
+    
+    /* Coordinate finder overlay */
+    .coordinates-overlay {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0, 0, 0, 0.8);
+      border: 2px solid #d4af37;
+      border-radius: 8px;
+      padding: 15px;
+      z-index: 1000;
       color: #d4af37;
-      margin-top: 8px;
+      display: none;
+      width: 300px;
+      backdrop-filter: blur(5px);
+    }
+    
+    .coordinates-pointer {
+      position: absolute;
+      width: 15px;
+      height: 15px;
+      background-color: #d4af37;
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 999;
+      pointer-events: none;
+      display: none;
+    }
+    
+    /* Copy button in coordinates overlay */
+    .copy-btn {
+      background: #d4af37;
+      color: #000;
+      border: none;
+      padding: 5px 10px;
+      border-radius: 4px;
+      cursor: pointer;
       font-weight: bold;
-      text-align: center;
-      font-size: 0.9rem;
+      transition: all 0.2s;
+    }
+    
+    .copy-btn:hover {
+      background: #e8c96b;
+    }
+    
+    /* Flash animation when copying */
+    @keyframes flash {
+      0% { opacity: 1; }
+      50% { opacity: 0.5; }
+      100% { opacity: 1; }
+    }
+    
+    .flash-animation {
+      animation: flash 0.3s;
+    }
+    
+    /* Close button for coordinates overlay */
+    .close-btn {
+      position: absolute;
+      top: 5px;
+      right: 5px;
+      background: transparent;
+      border: none;
+      color: #d4af37;
+      font-size: 18px;
+      cursor: pointer;
+    }
+    
+    /* Coordinates display box */
+    .coordinates-display {
+      background: rgba(0, 0, 0, 0.5);
+      border: 1px solid #d4af37;
+      padding: 8px;
+      border-radius: 4px;
+      margin: 10px 0;
+      font-family: monospace;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    
+    /* Controls panel */
+    .controls-panel {
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      z-index: 500;
+      display: flex;
+      gap: 10px;
+    }
+    
+    .control-btn {
+      background: rgba(0, 0, 0, 0.8);
+      border: 2px solid #d4af37;
+      color: #d4af37;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 14px;
+      transition: all 0.3s ease;
+    }
+    
+    .control-btn:hover {
+      background: rgba(212, 175, 55, 0.2);
+      transform: translateY(-2px);
+    }
+    
+    /* Панель переключения карт */
+    .map-selector {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      z-index: 500;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    
+    .map-button {
+      background: rgba(0, 0, 0, 0.8);
+      border: 2px solid #d4af37;
+      color: #d4af37;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 14px;
+      transition: all 0.3s ease;
+      min-width: 80px;
+    }
+    
+    .map-button:hover {
+      background: rgba(212, 175, 55, 0.2);
+      transform: translateY(-2px);
+    }
+    
+    .map-button.active {
+      background: #d4af37;
+      color: #000;
+      font-weight: bold;
+    }
+    
+    /* Responsive design for smaller screens */
+    @media (max-width: 768px) {
+      .map-selector {
+        top: 10px;
+        left: 10px;
+        gap: 5px;
+      }
+      
+      .map-button {
+        padding: 6px 12px;
+        font-size: 12px;
+        min-width: 60px;
+      }
+      
+      .tooltip {
+        max-width: 250px;
+        padding: 6px;
+      }
+      
+      .tooltip img {
+        max-width: 150px;
+        max-height: 150px;
+      }
+      
+      .tooltip img.enlarged {
+        max-width: 85vw;
+        max-height: 85vh;
+      }
+      
+      .controls-panel {
+        bottom: 10px;
+        left: 10px;
+      }
+      
+      .coordinates-overlay {
+        width: 260px;
+      }
+    }
+    
+    @media (max-width: 480px) {
+      .map-selector {
+        top: 5px;
+        left: 5px;
+        gap: 3px;
+      }
+      
+      .map-button {
+        padding: 4px 8px;
+        font-size: 11px;
+        min-width: 50px;
+      }
+      
+      .tooltip {
+        max-width: 200px;
+        padding: 4px;
+      }
+      
+      .tooltip img {
+        max-width: 120px;
+        max-height: 120px;
+      }
+      
+      .tooltip img.enlarged {
+        max-width: 80vw;
+        max-height: 80vh;
+      }
+      
+      .controls-panel {
+        bottom: 5px;
+        flex-direction: column;
+        gap: 5px;
+      }
+      
+      .coordinates-overlay {
+        width: 220px;
+        padding: 10px;
+      }
     }
   </style>
 </head>
 <body>
-  <div class="map-container" id="map">
-    <!-- Маркеры будут созданы динамически -->
-    <div class="tooltip" id="tooltip">
-      <div class="tooltip-content">
-        <img id="tooltip-img" src="" alt="Location Preview" />
-        <div class="tooltip-title" id="tooltip-title"></div>
-      </div>
+  <!-- Панель выбора карт -->
+  <div class="map-selector">
+    <button class="map-button active" data-map="map1">Распадок Маммоны</button>
+    <button class="map-button" data-map="map2">Карта 2</button>
+    <button class="map-button" data-map="map3">Карта 3</button>
+    <button class="map-button" data-map="map4">Карта 4</button>
+  </div>
+  
+  <!-- Controls panel -->
+  <div class="controls-panel">
+    <button class="control-btn bg-blue-800 border-blue-500 text-white" id="toggleFinder">Включить поиск координат</button>
+    <button class="control-btn bg-green-800 border-green-500 text-white" id="addMarkerBtn">Добавить маркер</button>
+    <div class="text-white text-sm p-2 bg-black bg-opacity-50 rounded ml-2">
+      Для поиска координат: 1) Включите поиск 2) Кликните на карте
     </div>
   </div>
 
-  <script>
-    // Конфигурация маркеров
-    const markersConfig = [
-      {
-        name: "Кассовый аппарат",
-        top: 81.18,
-        left: 85.7,
-        img: "https://i.imgur.com/pfCGLC7.jpg"
-      },
-      {
-        name: "Кассовый аппарат",
-        top: 28,
-        left: 33,
-        img: "https://i.imgur.com/MOYMS0r.png"
-      },
-      {
-        name: "Кассовый аппарат",
-        top: 62,
-        left: 25,
-        img: "https://i.imgur.com/pwiylno.png"
-      }
-    ];
+  <!-- Coordinate finder elements -->
+  <div class="coordinates-pointer" id="coordinatesPointer"></div>
+  
+  <div class="coordinates-overlay" id="coordinatesOverlay">
+    <button class="close-btn" id="closeCoordinates">&times;</button>
+    <h3 class="text-lg font-bold mb-2">Координаты маркера</h3>
+    <div class="coordinates-display" id="coordinatesDisplay">
+      Нажмите на карту, чтобы узнать координаты<br>
+      Формат: left: 'XX.XX%', top: 'YY.YY%'
+    </div>
+    <button class="copy-btn w-full" id="copyCoordinates">Копировать координаты</button>
+  </div>
 
-    // Элементы DOM
+  <div class="map-wrapper" id="mapWrapper">
+    <div class="map" id="map">
+      <!-- Маркеры будут динамически загружаться для каждой карты -->
+    </div>
+  </div>
+  
+  <div class="tooltip" id="tooltip">
+    <img id="tooltip-img" src="" alt="Location preview" />
+  </div>
+
+  <script>
+    // Map interaction variables
+    const wrapper = document.getElementById('mapWrapper');
     const map = document.getElementById('map');
     const tooltip = document.getElementById('tooltip');
     const tooltipImg = document.getElementById('tooltip-img');
-    const tooltipTitle = document.getElementById('tooltip-title');
     
-    // Предзагрузка изображений
-    function preloadImages() {
-      markersConfig.forEach(marker => {
-        const img = new Image();
-        img.src = marker.img;
+    let scale = 1;
+    let origin = { x: 0, y: 0 };
+    let isPanning = false;
+    let start = { x: 0, y: 0 };
+    let isFinderActive = false;
+    let lastClickCoordinates = { x: 0, y: 0, percentX: 0, percentY: 0 };
+
+    // Coordinate finder elements
+    const coordinatesOverlay = document.getElementById('coordinatesOverlay');
+    const coordinatesPointer = document.getElementById('coordinatesPointer');
+    const coordinatesDisplay = document.getElementById('coordinatesDisplay');
+    const copyCoordinatesBtn = document.getElementById('copyCoordinates');
+    const closeCoordinatesBtn = document.getElementById('closeCoordinates');
+    const toggleFinderBtn = document.getElementById('toggleFinder');
+    const addMarkerBtn = document.getElementById('addMarkerBtn');
+
+    // Конфигурация карт
+    const mapConfigs = {
+      map1: {
+        name: 'Карта 1',
+        background: 'https://i.postimg.cc/XY7HK0t9/Basemap-Mammon-V1.png',
+        markers: [
+          { top: '76.63%', left: '69.14%', img: 'https://i.imgur.com/MOYMS0r.png' },
+          { top: '62%', left: '25%', img: 'https://i.imgur.com/pwiylno.png' },
+          { top: '80.96%', left: '67.85%', img: 'https://i.imgur.com/pfCGLC7.jpg' }
+        ]
+      },
+      map2: {
+        name: 'Карта 2',
+        background: 'https://i.postimg.cc/XY7HK0t9/Basemap-Mammon-V1.png',
+        markers: [
+          { top: '35%', left: '40%', img: 'https://i.imgur.com/MOYMS0r.png' },
+          { top: '55%', left: '30%', img: 'https://i.imgur.com/pwiylno.png' },
+          { top: '70%', left: '75%', img: 'https://i.imgur.com/pfCGLC7.jpg' }
+        ]
+      },
+      map3: {
+        name: 'Карта 3',
+        background: 'https://i.postimg.cc/XY7HK0t9/Basemap-Mammon-V1.png',
+        markers: [
+          { top: '20%', left: '50%', img: 'https://i.imgur.com/MOYMS0r.png' },
+          { top: '45%', left: '60%', img: 'https://i.imgur.com/pwiylno.png' },
+          { top: '80%', left: '20%', img: 'https://i.imgur.com/pfCGLC7.jpg' }
+        ]
+      },
+      map4: {
+        name: 'Карта 4',
+        background: 'https://i.postimg.cc/XY7HK0t9/Basemap-Mammon-V1.png',
+        markers: [
+          { top: '40%', left: '25%', img: 'https://i.imgur.com/MOYMS0r.png' },
+          { top: '30%', left: '70%', img: 'https://i.imgur.com/pwiylno.png' },
+          { top: '65%', left: '55%', img: 'https://i.imgur.com/pfCGLC7.jpg' }
+        ]
+      }
+    };
+
+    // Marker templates for different types (currently just using default)
+    const markerTemplates = {
+      default: 'https://i.imgur.com/PMs8Eca.png',
+      boss: 'https://i.imgur.com/xyz123.png',
+      clue: 'https://i.imgur.com/abc456.png',
+      extraction: 'https://i.imgur.com/def789.png'
+    };
+
+    let currentMap = 'map1';
+
+    // Toggle coordinate finder mode
+    function toggleFinderMode() {
+      isFinderActive = !isFinderActive;
+      
+      if (isFinderActive) {
+        toggleFinderBtn.textContent = 'Выключить поиск координат';
+        toggleFinderBtn.classList.add('bg-red-800', 'border-red-500');
+        toggleFinderBtn.classList.remove('bg-blue-800', 'border-blue-500');
+        wrapper.style.cursor = 'crosshair';
+        // Enable adding markers while in finder mode
+        addMarkerBtn.disabled = false;
+      } else {
+        toggleFinderBtn.textContent = 'Включить поиск координат';
+        toggleFinderBtn.classList.remove('bg-red-800', 'border-red-500');
+        toggleFinderBtn.classList.add('bg-blue-800', 'border-blue-500');
+        wrapper.style.cursor = 'grab';
+        coordinatesPointer.style.display = 'none';
+        coordinatesOverlay.style.display = 'none';
+      }
+    }
+
+    // Show coordinates at a specific position
+    function showCoordinates(clientX, clientY) {
+      // Calculate position relative to the map
+      const rect = map.getBoundingClientRect();
+      const x = clientX - rect.left;
+      const y = clientY - rect.top;
+      
+      // Calculate percentage position (0-100%)
+      const percentX = (x / rect.width * 100).toFixed(2);
+      const percentY = (y / rect.height * 100).toFixed(2);
+      
+      // Show pointer at the clicked position
+      coordinatesPointer.style.left = `${clientX}px`;
+      coordinatesPointer.style.top = `${clientY}px`;
+      coordinatesPointer.style.display = 'block';
+      
+      // Show coordinates in the overlay
+      coordinatesDisplay.textContent = `left: '${percentX}%', top: '${percentY}%'`;
+      
+      // Position the overlay near the pointer
+      coordinatesOverlay.style.left = `${clientX + 20}px`;
+      coordinatesOverlay.style.top = `${clientY + 20}px`;
+      coordinatesOverlay.style.display = 'block';
+      
+      // Store the last clicked coordinates
+      lastClickCoordinates = { x: clientX, y: clientY, percentX, percentY };
+    }
+
+    // Copy coordinates to clipboard
+    function copyCoordinates() {
+      const coords = coordinatesDisplay.textContent;
+      navigator.clipboard.writeText(coords).then(() => {
+        // Show feedback
+        const originalText = copyCoordinatesBtn.textContent;
+        copyCoordinatesBtn.textContent = 'Скопировано!';
+        copyCoordinatesBtn.classList.add('bg-green-500', 'flash-animation');
+        
+        setTimeout(() => {
+          copyCoordinatesBtn.textContent = originalText;
+          copyCoordinatesBtn.classList.remove('bg-green-500', 'flash-animation');
+        }, 2000);
       });
     }
-    
-    // Создание маркеров
-    function createMarkers() {
-      markersConfig.forEach(marker => {
-        const markerElement = document.createElement('div');
-        markerElement.className = 'marker';
-        markerElement.style.top = `${marker.top}%`;
-        markerElement.style.left = `${marker.left}%`;
-        markerElement.dataset.img = marker.img;
-        markerElement.dataset.name = marker.name;
-        
-        markerElement.addEventListener('mouseover', showTooltip);
-        markerElement.addEventListener('mouseout', hideTooltip);
-        markerElement.addEventListener('mousemove', moveTooltip);
-        markerElement.addEventListener('click', toggleZoom);
-        
-        map.appendChild(markerElement);
-      });
+
+    // Add a marker at the last clicked position
+    function addMarker() {
+      if (isFinderActive) {
+=======
+    function addMarker() {
+      if (!isFinderActive) {
+      if (!lastClickCoordinates.percentX) {
+        alert('Сначала щелкните по карте, чтобы установить позицию!');
+        return;
+      }
+      
+      const imgUrl = prompt('Введите URL изображения для маркера (оставьте пустым для стандартного маркера):') || markerTemplates.default;
+      
+      // Create new marker data
+      const newMarker = {
+        top: `${lastClickCoordinates.percentY}%`,
+        left: `${lastClickCoordinates.percentX}%`,
+        img: imgUrl
+      };
+      
+      // Add to current map's markers
+      mapConfigs[currentMap].markers.push(newMarker);
+      
+      // Reload the map to show the new marker
+      loadMap(currentMap);
+      
+      // Show success message
+      alert(`Маркер добавлен на позицию:\nX: ${lastClickCoordinates.percentX}%\nY: ${lastClickCoordinates.percentY}%`);
     }
-    
-    // Показ подсказки
-    function showTooltip(e) {
-      const marker = e.currentTarget;
-      tooltipImg.src = marker.dataset.img;
-      tooltipTitle.textContent = marker.dataset.name;
-      tooltip.style.display = 'block';
-      moveTooltip(e);
-    }
-    
-    // Скрытие подсказки
-    function hideTooltip() {
+
+    // Функция загрузки карты
+    function loadMap(mapId) {
+      const config = mapConfigs[mapId];
+      if (!config) return;
+      
+      currentMap = mapId;
+            
+      // Обновляем фон карты
+      map.style.background = `url('${config.background}') no-repeat center`;
+      map.style.backgroundSize = 'cover';
+            
+      // Сбрасываем позицию и масштаб
+      scale = 1;
+      origin = { x: 0, y: 0 };
+      map.style.transform = `translate(${origin.x}px, ${origin.y}px) scale(${scale})`;
+            
+      // Скрываем тултип
       tooltip.style.display = 'none';
       tooltipImg.classList.remove('enlarged');
+            
+      // Очищаем старые маркеры
+      map.innerHTML = '';
+            
+      // Добавляем новые маркеры
+      config.markers.forEach(markerData => {
+        const marker = document.createElement('div');
+        marker.className = 'marker';
+        marker.style.top = markerData.top;
+        marker.style.left = markerData.left;
+        marker.setAttribute('data-img', markerData.img);
+        map.appendChild(marker);
+      });
+            
+      // Переинициализируем обработчики событий для новых маркеров
+      initializeMarkers();
+            
+      // Обновляем активную кнопку
+      document.querySelectorAll('.map-button').forEach(btn => {
+        btn.classList.remove('active');
+      });
+      document.querySelector(`[data-map="${mapId}"]`).classList.add('active');
     }
-    
-    // Перемещение подсказки с защитой от выхода за границы
-    function moveTooltip(e) {
-      const offsetX = 20;
-      const offsetY = 20;
-      const tooltipWidth = tooltip.offsetWidth;
-      const tooltipHeight = tooltip.offsetHeight;
-      
-      let x = e.clientX + offsetX;
-      let y = e.clientY + offsetY;
-      
-      // Проверка правой границы
-      if (x + tooltipWidth > window.innerWidth) {
-        x = e.clientX - tooltipWidth - offsetX;
-      }
-      
-      // Проверка нижней границы
-      if (y + tooltipHeight > window.innerHeight) {
-        y = e.clientY - tooltipHeight - offsetY;
-      }
-      
-      tooltip.style.left = `${x}px`;
-      tooltip.style.top = `${y}px`;
-    }
-    
-    // Увеличение/уменьшение изображения
-    function toggleZoom() {
-      tooltipImg.classList.toggle('enlarged');
-      
-      // Центрирование при увеличении
-      if (tooltipImg.classList.contains('enlarged')) {
-        const rect = tooltip.getBoundingClientRect();
-        const centerX = rect.left + rect.width / 2;
-        const centerY = rect.top + rect.height / 2;
-        
-        window.scrollTo({
-          top: centerY - window.innerHeight / 2,
-          left: centerX - window.innerWidth / 2,
-          behavior: 'smooth'
-        });
-      }
-    }
-    
-    // Поддержка мобильных устройств
-    function initTouchEvents() {
+
+    // Функция инициализации обработчиков маркеров
+    function initializeMarkers() {
       document.querySelectorAll('.marker').forEach(marker => {
-        marker.addEventListener('touchstart', function(e) {
-          e.preventDefault();
-          showTooltip(e);
-          toggleZoom();
+        marker.addEventListener('mouseenter', e => {
+          tooltipImg.src = marker.dataset.img;
+          tooltip.style.display = 'block';
+        });
+        
+        marker.addEventListener('mouseleave', () => {
+          if (!tooltipImg.classList.contains('enlarged')) {
+            tooltip.style.display = 'none';
+          }
+        });
+        
+        marker.addEventListener('mousemove', e => {
+          tooltip.style.left = `${e.pageX + 15}px`;
+          tooltip.style.top = `${e.pageY + 15}px`;
+        });
+        
+        marker.addEventListener('click', () => {
+          tooltipImg.classList.toggle('enlarged');
         });
       });
-      
-      document.addEventListener('touchend', hideTooltip);
     }
-    
-    // Инициализация
-    window.addEventListener('DOMContentLoaded', () => {
-      preloadImages();
-      createMarkers();
-      initTouchEvents();
+
+    // Инициализация переключателей карт
+    document.querySelectorAll('.map-button').forEach(button => {
+      button.addEventListener('click', () => {
+        const mapId = button.getAttribute('data-map');
+        loadMap(mapId);
+      });
     });
-    
-    // Закрытие подсказки при клике вне области
+
+    // Map panning functionality
+    wrapper.addEventListener('mousedown', e => {
+      // Prevent panning when clicking on markers or tooltip
+      if (e.target.classList.contains('marker') || e.target.closest('.tooltip') || 
+          e.target.closest('.map-selector') || e.target.closest('.controls-panel') ||
+          e.target.closest('.coordinates-overlay')) {
+        return;
+      }
+            
+      // Any click in finder mode shows coordinates
+      if (isFinderActive) {
+        e.preventDefault();
+        showCoordinates(e.clientX, e.clientY);
+        return;
+      }
+      
+      // Normal panning for left click
+      if (e.button === 0 && !isFinderActive) {
+        isPanning = true;
+        start = { x: e.clientX - origin.x, y: e.clientY - origin.y };
+        wrapper.style.cursor = 'grabbing';
+      }
+    });
+
+    wrapper.addEventListener('mousemove', e => {
+      if (!isPanning) return;
+            
+      origin.x = e.clientX - start.x;
+      origin.y = e.clientY - start.y;
+      map.style.transform = `translate(${origin.x}px, ${origin.y}px) scale(${scale})`;
+    });
+
+    wrapper.addEventListener('mouseup', () => {
+      isPanning = false;
+      if (!isFinderActive) {
+        wrapper.style.cursor = 'grab';
+      } else {
+        wrapper.style.cursor = 'crosshair';
+      }
+    });
+
+    // Prevent context menu on right click for better UX
+    wrapper.addEventListener('contextmenu', e => {
+      e.preventDefault();
+    });
+
+    // Map zooming functionality
+    wrapper.addEventListener('wheel', e => {
+      e.preventDefault();
+            
+      const rect = map.getBoundingClientRect();
+      const offsetX = e.clientX - rect.left;
+      const offsetY = e.clientY - rect.top;
+      const delta = -e.deltaY / 500;
+      const newScale = Math.min(Math.max(0.3, scale + delta), 4);
+      
+      // Calculate new origin to zoom towards mouse cursor
+      origin.x = e.clientX - (offsetX * newScale / scale);
+      origin.y = e.clientY - (offsetY * newScale / scale);
+      scale = newScale;
+            
+      map.style.transform = `translate(${origin.x}px, ${origin.y}px) scale(${scale})`;
+    }, { passive: false });
+
+    // Initialize coordinate finder controls
+    toggleFinderBtn.addEventListener('click', toggleFinderMode);
+    closeCoordinatesBtn.addEventListener('click', () => {
+      coordinatesOverlay.style.display = 'none';
+      coordinatesPointer.style.display = 'none';
+    });
+    copyCoordinatesBtn.addEventListener('click', copyCoordinates);
+    addMarkerBtn.addEventListener('click', addMarker);
+
+    // Загружаем первую карту при инициализации
+    loadMap('map1');
+
+    // Создаем затемненный фон для увеличенного изображения
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.8);
+      z-index: 1000;
+      display: none;
+    `;
+    document.body.appendChild(overlay);
+
+    // Обработчик клика по изображению внутри тултипа для увеличения
+    tooltipImg.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      tooltipImg.classList.toggle('enlarged');
+            
+      if (tooltipImg.classList.contains('enlarged')) {
+        // Показываем затемненный фон
+        overlay.style.display = 'block';
+      } else {
+        // Скрываем затемненный фон и тултип
+        overlay.style.display = 'none';
+        tooltip.style.display = 'none';
+      }
+    });
+
+    // Клик по затемненному фону закрывает увеличенное изображение
+    overlay.addEventListener('click', () => {
+      tooltipImg.classList.remove('enlarged');
+      overlay.style.display = 'none';
+      tooltip.style.display = 'none';
+    });
+
+    // Скрывать тултип при клике вне его области
     document.addEventListener('click', (e) => {
-      if (!e.target.closest('.marker') && !e.target.closest('.tooltip')) {
-        hideTooltip();
+      if (!e.target.closest('.marker') && !e.target.closest('.tooltip') && !tooltipImg.classList.contains('enlarged')) {
+        tooltip.style.display = 'none';
+        tooltipImg.classList.remove('enlarged');
+        overlay.style.display = 'none';
       }
     });
   </script>
